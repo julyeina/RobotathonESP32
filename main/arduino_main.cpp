@@ -45,22 +45,48 @@ void setup() {
     pinMode(IN2M1, OUTPUT);
 }
 
+void moveNoob(Controller* controller) {
+    if(controller && controller -> isConnected()) {
+        if(controller -> axisRX() > 0) {
+            digitalWrite(IN1M1, LOW);
+            digitalWrite(IN1M2, HIGH);
+            digitalWrite(IN2M1, LOW);
+            digitalWrite(IN2M2, HIGH);
+        }
+        if(controller -> axisRX() < 0) {
+            digitalWrite(IN1M1, HIGH);
+            digitalWrite(IN1M2, LOW);
+            digitalWrite(IN2M1, HIGH);
+            digitalWrite(IN2M2, LOW);
+        }
+        if(controller -> axisY() < 0) {
+            digitalWrite(IN1M1, LOW);
+            digitalWrite(IN1M2, HIGH);
+            digitalWrite(IN2M1, HIGH);
+            digitalWrite(IN2M2, LOW);
+        }
+        if(controller -> axisY() > 0) {
+            digitalWrite(IN1M1, HIGH);
+            digitalWrite(IN1M2, LOW);
+            digitalWrite(IN2M1, LOW);
+            digitalWrite(IN2M2, HIGH);
+        }
+
+        if(controller -> axisRX() == 0 && controller -> axisY() == 0) {
+            digitalWrite(IN1M1, LOW);
+            digitalWrite(IN1M2, LOW);
+            digitalWrite(IN2M1, LOW);
+            digitalWrite(IN2M2, LOW);
+        }
+    }
+}
+
 void loop() {
     vTaskDelay(1); // Ensures WDT does not get triggered when no controller is connected
     BP32.update(); 
     for (auto myController : myControllers) { // Only execute code when controller is connected
         if (myController && myController->isConnected() && myController->hasData()) {        
-            if(myController->axisY() < 0){
-                digitalWrite(IN2M1, HIGH);
-                analogWrite(IN1M1, 255);
-            }
-            if(myController->axisY() > 0){
-                digitalWrite(IN2M1, LOW);
-                analogWrite(IN1M1, 255);
-            }
-            if(myController->axisY() == 0){
-                analogWrite(IN1M1,0);
-            }
+            moveNoob(myController);
 
             dumpGamepad(myController); // Prints the gamepad state, delete or comment if don't need
         }
