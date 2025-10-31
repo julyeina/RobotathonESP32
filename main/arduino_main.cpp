@@ -6,7 +6,14 @@
 #include <Arduino.h>
 #include <Bluepad32.h>
 #include <uni.h>
+#include <QTRSensors.h>
 #include "controller_callbacks.h"
+
+#define IN1M1  16  // Control pin 1
+#define IN2M1  17  // Control pin 2
+#define IN1M2  18  // Control pin 1
+#define IN2M2  19  // Control pin 2
+
 
 extern ControllerPtr myControllers[BP32_MAX_GAMEPADS]; // BP32 library allows for up to 4 concurrent controller connections, but we only need 1
 
@@ -34,6 +41,8 @@ void setup() {
     BP32.forgetBluetoothKeys(); 
     esp_log_level_set("gpio", ESP_LOG_ERROR); // Suppress info log spam from gpio_isr_service
     uni_bt_allowlist_set_enabled(true);
+    pinMode(IN1M1, OUTPUT);
+    pinMode(IN2M1, OUTPUT);
 }
 
 void loop() {
@@ -41,14 +50,20 @@ void loop() {
     BP32.update(); 
     for (auto myController : myControllers) { // Only execute code when controller is connected
         if (myController && myController->isConnected() && myController->hasData()) {        
-          
-            /*
-            ====================
-            Your code goes here!
-            ====================
-            */
+            if(myController->axisY() < 0){
+                digitalWrite(IN2M1, HIGH);
+                analogWrite(IN1M1, 255);
+            }
+            if(myController->axisY() > 0){
+                digitalWrite(IN2M1, LOW);
+                analogWrite(IN1M1, 255);
+            }
+            if(myController->axisY() == 0){
+                analogWrite(IN1M1,0);
+            }
 
             dumpGamepad(myController); // Prints the gamepad state, delete or comment if don't need
         }
     }
+
 }
