@@ -12,6 +12,7 @@
 #include <Arduino_APDS9960.h>
 #include <bits/stdc++.h>
 #include <ESP32SharpIR.h>
+#include <ESP32Servo.h>
 
 #define APDS9960_INT 2
 #define I2C_SDA 21
@@ -28,7 +29,7 @@ extern ControllerPtr myControllers[BP32_MAX_GAMEPADS]; // BP32 library allows fo
 
 TwoWire I2C_0 = TwoWire(0);
 APDS9960 apds = APDS9960(I2C_0, APDS9960_INT);
-
+Servo Scoop;
 QTRSensors qtr;
 uint16_t sensors[2];
 
@@ -64,6 +65,7 @@ void setup() {
     pinMode(Motor1Pin2, OUTPUT);
     pinMode(Motor2Pin1, OUTPUT);
     pinMode(Motor2Pin2, OUTPUT);
+    Scoop.attach(23);
     I2C_0.begin(I2C_SDA, I2C_SCL, I2C_FREQ);
     apds.setInterruptPin(APDS9960_INT);
     apds.begin();
@@ -81,6 +83,17 @@ void setup() {
     FrontSensor.setFilterRate(1.0f);
     LeftSensor.setFilterRate(1.0f);
     RightSensor.setFilterRate(1.0f);
+}
+
+void scoopServo(Controller* controller){
+    if(controller && controller -> isConnected()){
+        if(controller -> r1()){
+            Scoop.write(0);
+        }
+        if(controller -> l1()){
+            Scoop.write(180);
+        }
+    }
 }
 
 void moveNoob(Controller* controller) {
@@ -146,13 +159,14 @@ void loop() {
     BP32.update(); 
     for (auto myController : myControllers) { // Only execute code when controller is connected
         if (myController && myController->isConnected() && myController->hasData()) {        
-            moveNoob(myController);
+            //moveNoob(myController);
+            scoopServo(myController);
 
             dumpGamepad(myController); // Prints the gamepad state, delete or comment if don't need
         }
     }
     //color();
     //line();
-    IRSensor();
+    //IRSensor();
 }
 
