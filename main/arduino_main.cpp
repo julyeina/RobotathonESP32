@@ -56,6 +56,16 @@ void dumpGamepad(ControllerPtr ctl) {
     );
 }
 
+void lineSensor() {
+    qtr.setTypeAnalog(); 
+    qtr.setSensorPins((const uint8_t[]) {32, 33}, 2); 
+    for (uint8_t i = 0; i < 250; i++) {
+        Console.printf("calibrating %d/250\n", i); 
+        qtr.calibrate();
+        delay(20);
+    }
+}
+
 void setup() {
     BP32.setup(&onConnectedController, &onDisconnectedController);
     BP32.forgetBluetoothKeys(); 
@@ -70,19 +80,18 @@ void setup() {
     apds.setInterruptPin(APDS9960_INT);
     apds.begin();
     Serial.begin(115200);
-    qtr.setTypeAnalog(); // or setTypeAnalog()
+    qtr.setTypeAnalog(); 
     qtr.setSensorPins((const uint8_t[]) {32, 33}, 2); // pin numbers go in the curly brackets {}, and number of sensors in use goes after
 
-    // calibration sequence
     for (uint8_t i = 0; i < 250; i++) { 
-        Console.printf("calibrating %d/250\n", i); // 250 is the number of calibrations recommended by manufacturer
+        Console.printf("calibrating %d/250\n", i); 
         qtr.calibrate(); 
         delay(20);
-    }
-
-    FrontSensor.setFilterRate(1.0f);
-    LeftSensor.setFilterRate(1.0f);
-    RightSensor.setFilterRate(1.0f);
+        }
+        lineSensor();
+        FrontSensor.setFilterRate(1.0f);
+        LeftSensor.setFilterRate(1.0f);
+        RightSensor.setFilterRate(1.0f);
 }
 
 void scoopServo(Controller* controller){
@@ -110,13 +119,13 @@ void moveNoob(Controller* controller) {
             digitalWrite(Motor2Pin1, LOW);
             digitalWrite(Motor2Pin2, HIGH);
         }
-        if(controller -> axisY() < 0) {
+        if(controller -> axisY() > 0) {
             digitalWrite(Motor1Pin1, LOW);
             digitalWrite(Motor1Pin2, HIGH);
             digitalWrite(Motor2Pin1, LOW);
             digitalWrite(Motor2Pin2, HIGH);
         }
-        if(controller -> axisY() > 0) {
+        if(controller -> axisY() < 0) {
             digitalWrite(Motor1Pin1, HIGH);
             digitalWrite(Motor1Pin2, LOW);
             digitalWrite(Motor2Pin1, HIGH);
@@ -140,18 +149,84 @@ void color(){
     delay(100);
 }
 
-void line(){
-    qtr.readLineBlack(sensors); // Get calibrated sensor values returned into sensors[]
+void line(Controller* controller){
+    qtr.readLineBlack(sensors); 
+    int sensorL = sensors[0];
+    int sensorR = sensors[1];
+    int thres = 750;
+    
     Console.printf("S1: %d S2: %d\n", sensors[0], sensors[1]);
+    delay(250);
+    if (sensorL > thres && sensorR > thres){
+        digitalWrite(Motor1Pin1, HIGH);
+        digitalWrite(Motor1Pin2, LOW);
+        digitalWrite(Motor2Pin1, HIGH);            
+        digitalWrite(Motor2Pin2, LOW);
+        Console.printf("forward");
+    }
+    else if(sensorL <= thres && sensorR > thres){            
+        digitalWrite(Motor1Pin1, HIGH);
+        digitalWrite(Motor1Pin2, LOW);
+        digitalWrite(Motor2Pin1, LOW);
+        digitalWrite(Motor2Pin2, HIGH);
+        Console.printf("right");
+    }
+    else if(sensorL > thres && sensorR <= thres){
+        digitalWrite(Motor1Pin1, LOW);
+        digitalWrite(Motor1Pin2, HIGH);
+        digitalWrite(Motor2Pin1, HIGH);
+        digitalWrite(Motor2Pin2, LOW);            
+        Console.printf("left");
+     }
+    else{
+        digitalWrite(Motor1Pin1, LOW);              
+        digitalWrite(Motor2Pin1, LOW);
+        digitalWrite(Motor1Pin2, LOW);
+        digitalWrite(Motor2Pin2, LOW);
+        Console.printf("stop ");
+    }
     delay(250);
 }
 
-void IRSensor(){
-Console.printf("front: %.2f left: %.2f right: %.2f\n",
+void IRSensor(Controller* controller){
+    Console.printf("front: %.2f left: %.2f right: %.2f\n",
     FrontSensor.getDistanceFloat(),
     LeftSensor.getDistanceFloat(),
     RightSensor.getDistanceFloat());
-    delay(100);
+
+    while(1){
+        float distance1 = FrontSensor.getDistanceFloat();
+        float distance2 = LeftSensor.getDistanceFloat();
+        float distance3 = RightSensor.getDistanceFloat();
+        float threshold = 10;
+        if(distance1 >= threshold && distance2 <= threshold && distance3 <= threshold){
+            digitalWrite(Motor1Pin1, HIGH);
+            digitalWrite(Motor1Pin2, LOW);
+            digitalWrite(Motor2Pin1, HIGH);            
+            digitalWrite(Motor2Pin2, LOW);
+        }
+        else if(distance1 <= threshold && distance2 > threshold  && distance3 <= threshold ){
+            digitalWrite(Motor1Pin1, LOW);
+            digitalWrite(Motor1Pin2, HIGH);
+            digitalWrite(Motor2Pin1, HIGH);
+            digitalWrite(Motor2Pin2, LOW);  
+        }
+        else if(distance1 <= threshold && distance2 <= threshold && distance3 >= threshold){
+            digitalWrite(Motor1Pin1, HIGH);
+            digitalWrite(Motor1Pin2, LOW);
+            digitalWrite(Motor2Pin1, LOW);
+            digitalWrite(Motor2Pin2, HIGH);
+        }
+        else { 
+            digitalWrite(Motor1Pin1, LOW);
+            digitalWrite(Motor1Pin2, LOW);
+            digitalWrite(Motor2Pin1, LOW);
+            digitalWrite(Motor2Pin2, LOW);
+        }
+    }
+    
+    delay(100); 
+
 }
 
 void loop() {
@@ -159,14 +234,20 @@ void loop() {
     BP32.update(); 
     for (auto myController : myControllers) { // Only execute code when controller is connected
         if (myController && myController->isConnected() && myController->hasData()) {        
-            //moveNoob(myController);
+            moveNoob(myController);
             scoopServo(myController);
 
-            dumpGamepad(myController); // Prints the gamepad state, delete or comment if don't need
+            if(myController -> y()){
+                line(myController);
+            }
+            if(myController -> a()){
+                IRSensor(myController);
+            }
+            
+            dumpGamepad(myController); 
         }
     }
     //color();
-    //line();
-    //IRSensor();
+    //IRSensor(myController);
 }
 
